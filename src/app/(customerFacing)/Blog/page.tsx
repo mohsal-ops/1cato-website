@@ -3,6 +3,11 @@ import Link from "next/link";
 import db from "@/db/db";
 import PostCard from "../_components/PostCard";
 
+// Render at request time (when the DB is reachable) instead of statically at
+// build — otherwise a cold/unmigrated Neon DB during the Vercel build either
+// fails the build or bakes an empty blog into the static page.
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "1Cato Journal | Snow Cones, Flavors & Events",
   description:
