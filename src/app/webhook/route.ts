@@ -4,6 +4,7 @@ import db from "@/db/db";
 import { google } from "googleapis";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { getStripe } from "@/lib/stripe";
 
 const formatSides = (sides: any[]) => {
   if (!sides || sides.length === 0) return "";
@@ -31,21 +32,23 @@ const formatSides = (sides: any[]) => {
     .join(" | ");
 };
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-
-// Google Sheets client
-const key = JSON.parse(process.env.GOOGLE_SERVICE_KEY as string);
-
-const auth = new google.auth.JWT({
-  email: key.client_email,
-  key: key.private_key,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-
-const sheets = google.sheets({ version: "v4", auth });
+// Lazily build the Google Sheets client so `JSON.parse(GOOGLE_SERVICE_KEY)`
+// doesn't run (and throw) while Next.js collects page data during the build,
+// where the env var isn't set.
+function getSheets() {
+  const key = JSON.parse(process.env.GOOGLE_SERVICE_KEY as string);
+  const auth = new google.auth.JWT({
+    email: key.client_email,
+    key: key.private_key,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  return google.sheets({ version: "v4", auth });
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const stripe = getStripe();
+    const sheets = getSheets();
     const sig = req.headers.get("stripe-signature");
     if (!sig) return new NextResponse("Missing signature", { status: 400 });
 

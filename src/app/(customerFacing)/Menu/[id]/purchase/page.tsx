@@ -1,6 +1,6 @@
 import db from "@/db/db"
 import { notFound } from "next/navigation"
-import Stripe from "stripe"
+import { getStripe } from "@/lib/stripe"
 import { StripeCheckoutForm } from "../../_components/StripeCheckoutForm"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -9,11 +9,10 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string)
-
 // ✅ FIX: await the params
 export default async function Page({ params }: PageProps) {
   const { id } = await params
+  const stripe = getStripe()
 
   if (!id) {
     return (

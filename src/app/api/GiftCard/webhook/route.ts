@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { getStripe } from "@/lib/stripe";
 
 const endpointSecret = process.env.STRIPE_GIFTCARD_WEBHOOK_SECRET!;
 
@@ -20,6 +19,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
+    const stripe = getStripe();
     const payload = await req.text();
     event = stripe.webhooks.constructEvent(payload, sig, endpointSecret);
   } catch (err: any) {

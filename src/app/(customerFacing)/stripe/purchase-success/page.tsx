@@ -2,9 +2,7 @@ import { Button } from "@/components/ui/button";
 import db from "@/db/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+import { getStripe } from "@/lib/stripe";
 
 export default async function Success(props: any) {
   const searchParams = await Promise.resolve(props.searchParams);
@@ -12,6 +10,7 @@ export default async function Success(props: any) {
 
   if (!payment_intent) return notFound();
 
+  const stripe = getStripe();
   const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent, {
     expand: ["charges.data.balance_transaction"],
   });

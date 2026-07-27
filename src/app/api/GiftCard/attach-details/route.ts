@@ -2,9 +2,7 @@
 // form to the Stripe PaymentIntent's metadata, so the webhook can include
 // them in the purchase notification email.
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { getStripe } from "@/lib/stripe";
 
 function clip(value: unknown, max = 500): string {
   return String(value ?? "").slice(0, max);
@@ -19,6 +17,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const stripe = getStripe();
     await stripe.paymentIntents.update(paymentIntentId, {
       metadata: {
         fromName: clip(fromName),

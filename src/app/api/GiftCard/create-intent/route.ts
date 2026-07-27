@@ -1,8 +1,6 @@
 // app/api/GiftCard/create-intent/route.ts
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { getStripe } from "@/lib/stripe";
 
 const MIN_AMOUNT_CENTS = 500; // $5
 const MAX_AMOUNT_CENTS = 100_000; // $1,000
@@ -23,6 +21,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
