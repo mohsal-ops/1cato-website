@@ -135,23 +135,40 @@ function debugLog(label: string, data: unknown) {
   console.log(`╚${"═".repeat(40)}\n`);
 }
 
-const credentials = {
-  client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!,
-  private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, "\n"),
-};
-
 // GA4_PROPERTY_ID must be ONLY the number — no "properties/" prefix, no "G-" prefix
 const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID!;
 const PAGESPEED_API_KEY = process.env.PAGESPEED_API_KEY;
 const SITE_URL = process.env.SITE_URL!;
 
-const ga4 = new BetaAnalyticsDataClient({ credentials });
+// Built lazily. At module top level, `GOOGLE_PRIVATE_KEY!.replace(...)` runs
+// during Next's build "collect page data" step (where the env var is absent)
+// and throws "Cannot read properties of undefined (reading 'replace')",
+// failing the build. Reading the credentials only when an analytics query
+// actually runs avoids that.
+function getCredentials() {
+  return {
+    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!,
+    private_key: (process.env.GOOGLE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
+  };
+}
 
-const gscAuth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
-});
-const searchconsole = google.searchconsole({ version: "v1", auth: gscAuth });
+let _ga4: BetaAnalyticsDataClient | null = null;
+function getGa4(): BetaAnalyticsDataClient {
+  if (!_ga4) _ga4 = new BetaAnalyticsDataClient({ credentials: getCredentials() });
+  return _ga4;
+}
+
+let _searchconsole: ReturnType<typeof google.searchconsole> | null = null;
+function getSearchConsole() {
+  if (!_searchconsole) {
+    const gscAuth = new google.auth.GoogleAuth({
+      credentials: getCredentials(),
+      scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
+    });
+    _searchconsole = google.searchconsole({ version: "v1", auth: gscAuth });
+  }
+  return _searchconsole;
+}
 
 // ── Core GA4 helper ───────────────────────────────────────────────────────────
 // Single reusable function — reduces duplication and surfaces real errors
@@ -160,7 +177,7 @@ type GA4ReportRequest = protos.google.analytics.data.v1beta.IRunReportRequest;
 
 async function runGA4(request: Omit<GA4ReportRequest, "property">) {
   try {
-    const [response] = await ga4.runReport({
+    const [response] = await getGa4().runReport({
       property: `properties/${GA4_PROPERTY_ID}`,
       ...request,
     });
@@ -454,11 +471,11 @@ export async function getSeoData(): Promise<SeoData> {
     const endDate = new Date().toISOString().split("T")[0];
 
     const [overview, keywords] = await Promise.all([
-      searchconsole.searchanalytics.query({
+      getSearchConsole().searchanalytics.query({
         siteUrl: SITE_URL,
         requestBody: { startDate, endDate },
       }),
-      searchconsole.searchanalytics.query({
+      getSearchConsole().searchanalytics.query({
         siteUrl: SITE_URL,
         requestBody: { startDate, endDate, dimensions: ["query"], rowLimit: 10 },
       }),
